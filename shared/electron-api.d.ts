@@ -3,6 +3,35 @@ import type { ProgressInfo, UpdateDownloadedEvent } from 'electron-updater'
 import { IPC_CHANNELS } from './ipcChannels'
 
 export interface IpcChannels {
+  [IPC_CHANNELS.tasks.viewer.login]: (
+    accountId: string,
+    accountName: string,
+    roomUrl: string,
+  ) => { ok: boolean; error?: string }
+  [IPC_CHANNELS.tasks.viewer.enterRoom]: (
+    accountId: string,
+    accountName: string,
+    roomUrl: string,
+  ) => { ok: boolean; error?: string }
+  [IPC_CHANNELS.tasks.viewer.disconnect]: (accountId: string) => boolean
+  [IPC_CHANNELS.tasks.viewer.logout]: (accountId: string, accountName: string) => boolean
+  [IPC_CHANNELS.tasks.viewer.status]: (accountId: string) => boolean
+  [IPC_CHANNELS.tasks.viewer.runtimeStatus]: () => {
+    activeIds: string[]
+    commentingIds: string[]
+    rotating: boolean
+  }
+  [IPC_CHANNELS.tasks.viewer.autoCommentStart]: (
+    accountId: string,
+    config: { accountName: string; message: string; interval: number },
+  ) => { ok: boolean; error?: string }
+  [IPC_CHANNELS.tasks.viewer.autoCommentStop]: (accountId: string) => boolean
+  [IPC_CHANNELS.tasks.viewer.autoCommentStartAll]: (config: {
+    accounts: { id: string; name: string; messages: string[]; commentInterval: [number, number] }[]
+    accountInterval: number
+    count: [number, number]
+  }) => { ok: boolean; error?: string }
+  [IPC_CHANNELS.tasks.viewer.autoCommentStopAll]: () => boolean
   // LiveControl
   [IPC_CHANNELS.tasks.liveControl.connect]: (params: {
     chromePath?: string
@@ -50,6 +79,14 @@ export interface IpcChannels {
     shortcuts: { accelerator: string; goodsIds: number[] }[],
   ) => void
   [IPC_CHANNELS.tasks.autoPopUp.unregisterShortcuts]: () => void
+
+  // AutoLuckyBag
+  [IPC_CHANNELS.tasks.autoLuckyBag.start]: (
+    accountId: string,
+    config: AutoLuckyBagConfig,
+  ) => boolean
+  [IPC_CHANNELS.tasks.autoLuckyBag.stop]: (accountId: string) => boolean
+  [IPC_CHANNELS.tasks.autoLuckyBag.stoppedEvent]: (accountId: string) => void
 
   // AutoReply
   [IPC_CHANNELS.tasks.autoReply.startCommentListener]: (

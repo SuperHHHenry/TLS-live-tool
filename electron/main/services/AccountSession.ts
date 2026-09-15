@@ -16,8 +16,10 @@ import {
   isPerformPopup,
   isPinComment,
   isSendRedPacket,
+  isStartLuckyBag,
 } from '#/platforms/IPlatform'
 import { createAutoCommentTask } from '#/tasks/AutoCommentTask'
+import { createAutoLuckyBagTask } from '#/tasks/AutoLuckyBagTask'
 import { createAutoPopupTask } from '#/tasks/AutoPopupTask'
 import { createCommentListenerTask } from '#/tasks/CommentListenerTask'
 import type { ITask } from '#/tasks/ITask'
@@ -121,16 +123,27 @@ export class AccountSession {
   }
 
   public async startTask(task: LiveControlTask): Result.ResultAsync<void, Error> {
+    if (task.type === 'auto-lucky-bag' && this.activeTasks.has(task.type)) {
+      return Result.succeed()
+    }
     const newTask = makeTask(task, this.platform, this.account, this.logger)
     if (Result.isFailure(newTask)) {
       return newTask
     }
     // 任务停止时从任务列表中移除
     newTask.value.addStopListener(() => {
-      this.activeTasks.delete(task.type)
+      if (this.activeTasks.get(task.type) === newTask.value) {
+        this.activeTasks.delete(task.type)
+      }
     })
-    await newTask.value.start()
-    this.activeTasks.set(task.type, newTask.value)
+    // 福袋首轮支持取消，需在等待首轮前登记；其他任务保留初始化后登记的时序。
+    if (task.type === 'auto-lucky-bag') {
+      this.activeTasks.set(task.type, newTask.value)
+      await newTask.value.start()
+    } else {
+      await newTask.value.start()
+      this.activeTasks.set(task.type, newTask.value)
+    }
     return Result.succeed()
   }
 
@@ -145,7 +158,12 @@ export class AccountSession {
 
   public async sendRedPacket(duration: string): Result.ResultAsync<void, Error> {
     if (!isSendRedPacket(this.platform)) {
-      return Result.fail(new TaskNotSupportedError({ taskName: '一键发红包', targetName: this.platform.platformName }))
+      return Result.fail(
+        new TaskNotSupportedError({
+          taskName: '一键发红包',
+          targetName: this.platform.platformName,
+        }),
+      )
     }
     return this.platform.sendRedPacket(duration)
   }
@@ -170,6 +188,9 @@ function makeTask<T extends LiveControlTask>(
 ): Result.Result<ITask, Error> {
   if (task.type === 'auto-popup' && isPerformPopup(platform)) {
     return createAutoPopupTask(platform, task.config, account, logger)
+  }
+  if (task.type === 'auto-lucky-bag' && isStartLuckyBag(platform)) {
+    return createAutoLuckyBagTask(platform, task.config, account, logger)
   }
   if (task.type === 'auto-comment' && isPerformComment(platform)) {
     return createAutoCommentTask(platform, task.config, account, logger)

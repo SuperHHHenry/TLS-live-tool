@@ -12,8 +12,11 @@ import type {
   IPerformPopup,
   IPlatform,
   ISendRedPacket,
+  IStartLuckyBag,
+  LuckyBagRunResult,
 } from '../IPlatform'
 import { REGEXPS, SELECTORS, URLS } from './constant'
+import { performStartFirstPendingLuckyBag } from './luckyBag'
 
 const PLATFORM_NAME = '巨量百应' as const
 
@@ -21,8 +24,15 @@ const PLATFORM_NAME = '巨量百应' as const
  * 巨量百应
  */
 export class BuyinPlatform
-  implements IPlatform, IPerformPopup, IPerformComment, ICommentListener, ISendRedPacket
+  implements
+    IPlatform,
+    IPerformPopup,
+    IPerformComment,
+    ICommentListener,
+    ISendRedPacket,
+    IStartLuckyBag
 {
+  readonly _isStartLuckyBag = true
   readonly _isSendRedPacket = true
   readonly _isPerformComment = true
   readonly _isPerformPopup = true
@@ -86,6 +96,19 @@ export class BuyinPlatform
   }
 
   getRedPacketPage(): Page | null {
+    return this.mainPage
+  }
+
+  async startFirstPendingLuckyBag(
+    signal?: AbortSignal,
+  ): Result.ResultAsync<LuckyBagRunResult, PlatformError> {
+    return Result.pipe(
+      ensurePage(this.mainPage),
+      Result.andThen(page => performStartFirstPendingLuckyBag(page, signal)),
+    )
+  }
+
+  getLuckyBagPage(): Page | null {
     return this.mainPage
   }
 

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router'
 import { abilities, autoReplyPlatforms } from '@/abilities'
+import { useAutoLuckyBag } from '@/hooks/useAutoLuckyBag'
 import { useCurrentAutoMessage } from '@/hooks/useAutoMessage'
 import { useCurrentAutoPopUp } from '@/hooks/useAutoPopUp'
 import { useAutoReply } from '@/hooks/useAutoReply'
@@ -27,6 +28,7 @@ export default function Sidebar() {
   const isAutoMessageRunning = useCurrentAutoMessage(context => context.isRunning)
   const isAutoPopupRunning = useCurrentAutoPopUp(context => context.isRunning)
   const { isRunning: isAutoReplyRunning } = useAutoReply()
+  const { isRunning: isAutoLuckyBagRunning } = useAutoLuckyBag()
   const platform = useCurrentLiveControl(context => context.platform)
 
   const tabs: SidebarTab[] = [
@@ -36,11 +38,16 @@ export default function Sidebar() {
       icon: <CarbonContentDeliveryNetwork className="w-5 h-5" />,
     },
     {
-      id: '/auto-message',
-      name: '自动发言',
-      isRunning: isAutoMessageRunning,
+      id: '/viewer-accounts',
+      name: '观众账号',
       icon: <CarbonChat className="w-5 h-5" />,
     },
+    // {
+    //   id: '/auto-message',
+    //   name: '自动发言',
+    //   isRunning: isAutoMessageRunning,
+    //   icon: <CarbonChat className="w-5 h-5" />,
+    // },
     {
       id: '/auto-popup',
       name: '自动弹窗',
@@ -54,22 +61,29 @@ export default function Sidebar() {
       icon: <CarbonIbmEventAutomation className="w-5 h-5" />,
       platform: autoReplyPlatforms,
     },
+    // {
+    //   id: '/red-packet',
+    //   name: '一键发红包',
+    //   icon: <CarbonGift className="w-5 h-5" />,
+    //   platform: ['douyin', 'buyin'],
+    // },
     {
-      id: '/red-packet',
-      name: '一键发红包',
+      id: '/auto-lucky-bag',
+      name: '自动发福袋',
+      isRunning: isAutoLuckyBagRunning,
       icon: <CarbonGift className="w-5 h-5" />,
-      platform: ['douyin', 'buyin'],
+      platform: ['buyin'],
     },
-    {
-      id: '/ai-chat',
-      name: 'AI 助手',
-      icon: <CarbonIbmWatsonTextToSpeech className="w-5 h-5" />,
-    },
-    {
-      id: '/settings',
-      name: '应用设置',
-      icon: <CarbonSettings className="w-5 h-5" />,
-    },
+    // {
+    //   id: '/ai-chat',
+    //   name: 'AI 助手',
+    //   icon: <CarbonIbmWatsonTextToSpeech className="w-5 h-5" />,
+    // },
+    // {
+    //   id: '/settings',
+    //   name: '应用设置',
+    //   icon: <CarbonSettings className="w-5 h-5" />,
+    // },
   ]
 
   const filteredTabs = tabs.filter(tab => {

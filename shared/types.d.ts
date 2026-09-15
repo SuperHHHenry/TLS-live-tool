@@ -43,6 +43,15 @@ declare type AutoPopupTask = {
   config: AutoPopupConfig
 }
 
+declare type AutoLuckyBagConfig = {
+  intervalMinutes: number
+}
+
+declare type AutoLuckyBagTask = {
+  type: 'auto-lucky-bag'
+  config: AutoLuckyBagConfig
+}
+
 declare type AutoCommentConfig = {
   scheduler: {
     interval: [number, number]
@@ -93,6 +102,7 @@ declare type PinCommentTask = {
 
 declare type LiveControlTask =
   | AutoPopupTask
+  | AutoLuckyBagTask
   | AutoCommentTask
   | SendBatchMessagesTask
   | CommentListenerTask

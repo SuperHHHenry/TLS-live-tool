@@ -19,6 +19,8 @@ export default function MessageEditor({
   const [text, setText] = useState(() => messages.map(msg => msg.content).join('\n'))
 
   useUpdateEffect(() => {
+    // Avoid resetting the textarea/cursor when parent receives our own debounced update.
+    if (messages.map(m => m.content).join('\n') === text) return
     setLocalMessages(messages)
     setText(messages.map(msg => msg.content).join('\n'))
   }, [messages])

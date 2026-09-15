@@ -1,5 +1,6 @@
 import { createHashRouter } from 'react-router'
 import AIChat from '@/pages/AIChat'
+import AutoLuckyBag from '@/pages/AutoLuckyBag'
 import AutoMessage from '@/pages/AutoMessage'
 import AutoPopUp from '@/pages/AutoPopUp'
 import AutoReply from '@/pages/AutoReply'
@@ -7,6 +8,7 @@ import AutoReplySettings from '@/pages/AutoReply/AutoReplySettings'
 import LiveControl from '@/pages/LiveControl'
 import RedPacket from '@/pages/RedPacket'
 import Settings from '@/pages/SettingsPage'
+import ViewerAccounts from '@/pages/ViewerAccounts'
 import App from '../App'
 
 export const router = createHashRouter([
@@ -27,6 +29,10 @@ export const router = createHashRouter([
         element: <AutoPopUp />,
       },
       {
+        path: '/viewer-accounts',
+        element: <ViewerAccounts />,
+      },
+      {
         path: '/settings',
         element: <Settings />,
       },
@@ -45,6 +51,10 @@ export const router = createHashRouter([
       {
         path: '/red-packet',
         element: <RedPacket />,
+      },
+      {
+        path: '/auto-lucky-bag',
+        element: <AutoLuckyBag />,
       },
     ],
   },

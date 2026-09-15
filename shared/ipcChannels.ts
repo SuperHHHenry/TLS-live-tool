@@ -21,6 +21,11 @@ export const IPC_CHANNELS = {
       registerShortcuts: 'tasks:autoPopup:registerShortcut',
       unregisterShortcuts: 'tasks:autoPopup:unregisterShortcut',
     },
+    autoLuckyBag: {
+      start: 'tasks:autoLuckyBag:start',
+      stop: 'tasks:autoLuckyBag:stop',
+      stoppedEvent: 'tasks:autoLuckyBag:stoppedEvent',
+    },
     aiChat: {
       chat: 'tasks:aiChat:chat',
       stream: 'tasks:aiChat:stream',
@@ -43,6 +48,18 @@ export const IPC_CHANNELS = {
     // 一键发红包
     redPacket: {
       send: 'tasks:redPacket:send',
+    },
+    viewer: {
+      login: 'viewer:login',
+      enterRoom: 'viewer:enterRoom',
+      disconnect: 'viewer:disconnect',
+      logout: 'viewer:logout',
+      status: 'viewer:status',
+      runtimeStatus: 'viewer:runtimeStatus',
+      autoCommentStart: 'viewer:autoCommentStart',
+      autoCommentStop: 'viewer:autoCommentStop',
+      autoCommentStartAll: 'viewer:autoCommentStartAll',
+      autoCommentStopAll: 'viewer:autoCommentStopAll',
     },
   },
   config: {

@@ -65,6 +65,20 @@ export function isSendRedPacket(platform: IPlatform): platform is IPlatform & IS
   return '_isSendRedPacket' in platform && platform._isSendRedPacket === true
 }
 
+export type LuckyBagRunResult = 'started' | 'no-pending-activity'
+
+export interface IStartLuckyBag {
+  _isStartLuckyBag: true
+  startFirstPendingLuckyBag(
+    signal?: AbortSignal,
+  ): Result.ResultAsync<LuckyBagRunResult, PlatformError>
+  getLuckyBagPage(): Page | null
+}
+
+export function isStartLuckyBag(platform: IPlatform): platform is IPlatform & IStartLuckyBag {
+  return '_isStartLuckyBag' in platform && platform._isStartLuckyBag === true
+}
+
 export interface IPlatform {
   get platformName(): string
   /** 连接到中控台，最终停留在中控台页面 */
