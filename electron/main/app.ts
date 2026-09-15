@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { IPC_CHANNELS } from 'shared/ipcChannels'
 import { emitter } from './event/eventBus'
-import { updateManager } from './managers/UpdateManager'
+// import { updateManager } from './managers/UpdateManager'
 import { providerService } from './services/ProviderService'
 import windowManager from './windowManager'
 import './ipc'
@@ -116,10 +116,10 @@ async function createWindow() {
     win.loadFile(indexHtml)
   }
 
-  // 加载完成后检查更新
-  win.webContents.on('did-finish-load', async () => {
-    await updateManager.silentCheckForUpdate()
-  })
+  // 内部版本禁用软件更新检查，需要恢复时取消以下代码及对应导入的注释。
+  // win.webContents.on('did-finish-load', async () => {
+  //   await updateManager.silentCheckForUpdate()
+  // })
 
   // Make all links open with the browser, not with the application
   win.webContents.setWindowOpenHandler(({ url }) => {

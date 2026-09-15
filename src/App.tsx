@@ -16,7 +16,7 @@ import { Header } from './components/common/Header'
 import { useIpcListener } from './hooks/useIpc'
 import './App.css'
 import { useEffect } from 'react'
-import { UpdateDialog } from './components/update/UpdateDialog'
+// import { UpdateDialog } from './components/update/UpdateDialog'
 import { useAccounts } from './hooks/useAccounts'
 import { useAutoMessageStore } from './hooks/useAutoMessage'
 import { useAutoPopUpStore } from './hooks/useAutoPopUp'
@@ -24,7 +24,8 @@ import { useAutoReply, useAutoReplyStore } from './hooks/useAutoReply'
 import { useChromeConfigStore } from './hooks/useChromeConfig'
 import { useLiveControlStore } from './hooks/useLiveControl'
 import { useToast } from './hooks/useToast'
-import { useUpdateConfigStore, useUpdateStore } from './hooks/useUpdate'
+
+// import { useUpdateConfigStore, useUpdateStore } from './hooks/useUpdate'
 
 function useGlobalIpcListener() {
   const { handleComment } = useAutoReply()
@@ -33,8 +34,8 @@ function useGlobalIpcListener() {
   const setIsRunningAutoMessage = useAutoMessageStore(s => s.setIsRunning)
   const setIsRunningAutoPopUp = useAutoPopUpStore(s => s.setIsRunning)
   const setStorageState = useChromeConfigStore(s => s.setStorageState)
-  const enableAutoCheckUpdate = useUpdateConfigStore(s => s.enableAutoCheckUpdate)
-  const handleUpdate = useUpdateStore.use.handleUpdate()
+  // const enableAutoCheckUpdate = useUpdateConfigStore(s => s.enableAutoCheckUpdate)
+  // const handleUpdate = useUpdateStore.use.handleUpdate()
   const { toast } = useToast()
 
   useIpcListener(IPC_CHANNELS.tasks.autoReply.showComment, ({ comment, accountId }) => {
@@ -70,11 +71,12 @@ function useGlobalIpcListener() {
     }
   })
 
-  useIpcListener(IPC_CHANNELS.app.notifyUpdate, info => {
-    if (enableAutoCheckUpdate) {
-      handleUpdate(info)
-    }
-  })
+  // 内部版本禁用软件更新通知，需要恢复时取消以下代码及对应导入的注释。
+  // useIpcListener(IPC_CHANNELS.app.notifyUpdate, info => {
+  //   if (enableAutoCheckUpdate) {
+  //     handleUpdate(info)
+  //   }
+  // })
 }
 
 function App() {
@@ -122,7 +124,8 @@ function App() {
               <LogDisplayer />
             </div>
           </div>
-          <UpdateDialog />
+          {/* 内部版本禁用软件更新弹窗，需要恢复时取消下一行注释。 */}
+          {/* <UpdateDialog /> */}
         </ContextMenuTrigger>
         {devMode && (
           <ContextMenuContent>

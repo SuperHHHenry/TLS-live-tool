@@ -5,7 +5,7 @@ import { AccountSetting } from '@/pages/SettingsPage/components/AccountSetting'
 import { BrowserSetting } from '@/pages/SettingsPage/components/BrowserSetting'
 import { DevSetting } from '@/pages/SettingsPage/components/DevSetting'
 import { OtherSetting } from '@/pages/SettingsPage/components/OtherSetting'
-import { UpdateSetting } from '@/pages/SettingsPage/components/UpdateSetting'
+// import { UpdateSetting } from '@/pages/SettingsPage/components/UpdateSetting'
 
 export default function Settings() {
   const location = useLocation()
@@ -28,7 +28,8 @@ export default function Settings() {
 
       <div className="space-y-8">
         <BrowserSetting />
-        <UpdateSetting />
+        {/* 内部版本禁用软件更新设置，需要恢复时取消对应导入和下一行注释。 */}
+        {/* <UpdateSetting /> */}
         <AccountSetting />
         <DevSetting />
         <OtherSetting />
