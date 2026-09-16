@@ -60,6 +60,8 @@ export const IPC_CHANNELS = {
       autoCommentStop: 'viewer:autoCommentStop',
       autoCommentStartAll: 'viewer:autoCommentStartAll',
       autoCommentStopAll: 'viewer:autoCommentStopAll',
+      detectLiveAccount: 'viewer:detectLiveAccount',
+      detectLiveAccounts: 'viewer:detectLiveAccounts',
     },
   },
   config: {

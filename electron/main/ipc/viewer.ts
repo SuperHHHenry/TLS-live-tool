@@ -56,4 +56,10 @@ export function setupViewerIpcHandlers() {
   typedIpcMainHandle(IPC_CHANNELS.tasks.viewer.autoCommentStopAll, () =>
     viewerSessionManager.stopAutoCommentAll(),
   )
+  typedIpcMainHandle(IPC_CHANNELS.tasks.viewer.detectLiveAccount, (_, url) =>
+    viewerSessionManager.detectLiveAccount(url),
+  )
+  typedIpcMainHandle(IPC_CHANNELS.tasks.viewer.detectLiveAccounts, (_, urls) =>
+    Promise.all(urls.map(url => viewerSessionManager.detectLiveAccount(url))),
+  )
 }

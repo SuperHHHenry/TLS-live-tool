@@ -56,7 +56,7 @@ export type AutoReplyConfig = AutoReplyBaseConfig & CompassExtraConfig & WechatC
 const defaultPrompt =
   '你是一个直播间的助手，负责回复观众的评论。请用简短友好的语气回复，不要超过50个字。'
 
-const createDefaultConfig = (): AutoReplyConfig => {
+export const createDefaultAutoReplyConfig = (): AutoReplyConfig => {
   return {
     entry: 'control',
     hideUsername: false,
@@ -137,7 +137,7 @@ export const useAutoReplyConfigStore = create<AutoReplyConfigStore>()(
 
       const ensureContext = (state: AutoReplyConfigStore, accountId: string) => {
         if (!state.contexts[accountId]) {
-          state.contexts[accountId] = { config: createDefaultConfig() }
+          state.contexts[accountId] = { config: createDefaultAutoReplyConfig() }
         }
         return state.contexts[accountId]
       }
@@ -164,7 +164,7 @@ export const useAutoReplyConfig = () => {
   const store = useAutoReplyConfigStore()
   const currentAccountId = useAccounts(ctx => ctx.currentAccountId)
   const config = mergeWithoutArray(
-    createDefaultConfig(),
+    createDefaultAutoReplyConfig(),
     store.contexts[currentAccountId]?.config ?? {},
   )
 

@@ -167,7 +167,7 @@ function toast({ ...props }: Toast) {
 const toasty = {
   success: (message: string) =>
     toast({
-      variant: 'default',
+      variant: 'success',
       description: message,
     }),
   error: (message: string) =>

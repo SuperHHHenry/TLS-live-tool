@@ -206,3 +206,11 @@ declare type LiveMessage =
   | DouyinLiveMessage
   | XiaohongshuCommentLiveMessage
   | TaobaoCommentLiveMessage
+declare type LiveAccountDetection = {
+  ok: boolean
+  accountId: string | null
+  accountName: string
+  liveStatus: 'live' | 'offline' | 'unknown'
+  roomUrl: string | null
+  error?: string
+}

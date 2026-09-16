@@ -53,6 +53,68 @@ class ViewerSessionManager {
     if (!/^\d+$/.test(u.pathname.slice(1))) throw new Error('直播间地址格式无效')
     return u.toString()
   }
+  async detectLiveAccount(sourceUrl: string): Promise<LiveAccountDetection> {
+    let url: URL
+    try {
+      url = new URL(sourceUrl)
+      if (url.protocol !== 'https:' || !/(^|\.)douyin\.com$/.test(url.hostname)) {
+        throw new Error('请输入有效的抖音账号或直播间链接')
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        accountId: null,
+        accountName: '读取失败',
+        liveStatus: 'unknown',
+        roomUrl: null,
+        error: error instanceof Error ? error.message : '链接无效',
+      }
+    }
+    let session: BrowserSession | undefined
+    try {
+      session = await browserManager.createSession(true)
+      await session.page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await session.page.waitForTimeout(1200)
+      const title = await session.page.title().catch(() => '')
+      const name = await session.page
+        .locator('meta[property="og:title"], h1, [data-e2e="user-info"] h1')
+        .first()
+        .textContent()
+        .catch(() => '')
+      const accountName = (name || title.split(/[-_|]/)[0] || '').trim() || '未识别账号'
+      const bodyText = (
+        await session.page
+          .locator('body')
+          .innerText()
+          .catch(() => '')
+      ).slice(0, 50000)
+      const live = /正在直播|直播中|进入直播间|在线人数/.test(bodyText)
+      const accountId =
+        url.pathname.match(/^\/user\/([^/]+)/)?.[1] || url.pathname.match(/(\d{6,})/)?.[1] || null
+      const linkedRoom = await session.page
+        .locator('a[href*="live.douyin.com/"]')
+        .evaluateAll(links =>
+          links
+            .map(link => (link as HTMLAnchorElement).href)
+            .find(href => /^https:\/\/live\.douyin\.com\/\d+/.test(href)),
+        )
+        .catch(() => undefined)
+      const currentRoom = session.page.url().match(/^https:\/\/live\.douyin\.com\/\d+/)?.[0] || null
+      const roomUrl = live ? currentRoom || linkedRoom || null : null
+      return { ok: true, accountId, accountName, liveStatus: live ? 'live' : 'offline', roomUrl }
+    } catch (error) {
+      return {
+        ok: false,
+        accountId: null,
+        accountName: '读取失败',
+        liveStatus: 'unknown',
+        roomUrl: null,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    } finally {
+      await session?.browser.close().catch(() => {})
+    }
+  }
   async open(
     id: string,
     accountName: string,
@@ -86,6 +148,11 @@ class ViewerSessionManager {
       }
       onStatus?.('entering-room')
       await session.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await session.page
+        .locator('#chatInput, [contenteditable="true"], textarea, input[placeholder*="评论"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+      await session.page.waitForTimeout(1000)
       onStatus?.('in-room')
       logger.loginSucceeded()
       return true

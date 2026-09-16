@@ -32,6 +32,8 @@ export interface IpcChannels {
     count: [number, number]
   }) => { ok: boolean; error?: string }
   [IPC_CHANNELS.tasks.viewer.autoCommentStopAll]: () => boolean
+  [IPC_CHANNELS.tasks.viewer.detectLiveAccount]: (url: string) => LiveAccountDetection
+  [IPC_CHANNELS.tasks.viewer.detectLiveAccounts]: (urls: string[]) => LiveAccountDetection[]
   // LiveControl
   [IPC_CHANNELS.tasks.liveControl.connect]: (params: {
     chromePath?: string
