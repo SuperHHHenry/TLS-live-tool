@@ -23,6 +23,7 @@ import { useAutoPopUpStore } from './hooks/useAutoPopUp'
 import { useAutoReply, useAutoReplyStore } from './hooks/useAutoReply'
 import { useChromeConfigStore } from './hooks/useChromeConfig'
 import { useLiveControlStore } from './hooks/useLiveControl'
+import { useScheduledLiveConnection } from './hooks/useScheduledLiveConnection'
 import { useToast } from './hooks/useToast'
 
 // import { useUpdateConfigStore, useUpdateStore } from './hooks/useUpdate'
@@ -91,6 +92,7 @@ function App() {
   }, [accounts, currentAccountId])
 
   useGlobalIpcListener()
+  useScheduledLiveConnection()
 
   const handleRefresh = () => {
     window.location.reload()
