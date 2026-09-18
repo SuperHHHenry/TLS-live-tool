@@ -88,6 +88,7 @@ namespace LiveCompanionNative
     {
         public readonly List<Candidate> Candidates = new List<Candidate>();
         public int ElementCount;
+        public int WindowCount;
     }
 
     public static class Driver
@@ -113,8 +114,6 @@ namespace LiveCompanionNative
         static extern bool EnumWindows(EnumWindowsProc callback, IntPtr state);
         [DllImport("user32.dll")]
         static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
-        [DllImport("user32.dll")]
-        static extern bool IsWindowVisible(IntPtr hwnd);
         [DllImport("user32.dll")]
         static extern bool IsIconic(IntPtr hwnd);
         [DllImport("user32.dll")]
@@ -181,15 +180,20 @@ namespace LiveCompanionNative
             {
                 uint owner;
                 GetWindowThreadProcessId(hwnd, out owner);
-                if (owner == (uint)pid && IsWindowVisible(hwnd)) windows.Add(hwnd);
+                // Match the read-only probe: native HWND visibility can exclude
+                // hosts whose UIA descendants still expose visible controls.
+                if (owner == (uint)pid) windows.Add(hwnd);
                 return true;
             }, IntPtr.Zero);
-            if (windows.Count == 0) throw new InvalidOperationException("直播伴侣没有可见窗口，请先恢复主界面");
+            if (windows.Count == 0) throw new InvalidOperationException("直播伴侣没有顶层窗口，请先打开主界面");
 
-            var result = new Snapshot();
-            var seen = new HashSet<string>();
+            var result = new Snapshot { WindowCount = windows.Count };
+            var candidateIds = new HashSet<string>();
             foreach (IntPtr hwnd in windows)
             {
+                // Scan each HWND independently. An earlier HWND may expose only
+                // a partial tree; seeing its root must not prune a later scan.
+                var seen = new HashSet<string>();
                 diagnosticStage = "uia.element-from-window";
                 IUIAutomationElement root = automation.ElementFromHandle(hwnd);
                 if (root == null) throw new InvalidOperationException("无法获取直播伴侣窗口的原生 UIA 根元素");
@@ -200,6 +204,8 @@ namespace LiveCompanionNative
                     if (result.ElementCount >= 5000 || clock.Elapsed.TotalSeconds > 12)
                         throw new InvalidOperationException("原生 UIA 扫描未完成（元素或时间上限），已停止操作");
                     IUIAutomationElement element = stack.Pop();
+                    // Count visits, including duplicates, so cycles remain bounded.
+                    result.ElementCount++;
                     // Queue siblings even when this element was already visited through
                     // another top-level HWND; otherwise later siblings could be omitted.
                     if (!Object.ReferenceEquals(element, root))
@@ -212,10 +218,11 @@ namespace LiveCompanionNative
                     int[] runtimeId = element.GetRuntimeId();
                     if (runtimeId == null || runtimeId.Length == 0)
                         throw new InvalidOperationException("无法获取 UIA 元素标识，无法安全去重");
-                    if (!seen.Add(String.Join(",", runtimeId))) continue;
-                    result.ElementCount++;
+                    string elementId = String.Join(",", runtimeId);
+                    if (!seen.Add(elementId)) continue;
                     string name = Name(element);
-                    if (Relevant(name) && !Flag(element, OffscreenProperty) && ElementProcessId(element) == pid)
+                    if (Relevant(name) && !Flag(element, OffscreenProperty) && ElementProcessId(element) == pid &&
+                        candidateIds.Add(elementId))
                     {
                         result.Candidates.Add(new Candidate {
                             Element = element,
@@ -317,7 +324,8 @@ namespace LiveCompanionNative
                 var result = new Result {
                     State = state, ProcessId = process.Id, ElementCount = snapshot.ElementCount,
                     AttemptCount = attempts, Method = "nativeUIA", Invoked = false,
-                    Detail = "原生 UIA 已扫描；可见目标元素数：" + snapshot.Candidates.Count
+                    Detail = "原生 UIA 已扫描；顶层窗口数：" + snapshot.WindowCount +
+                        "；可见目标元素数：" + snapshot.Candidates.Count
                 };
                 if (action == "state") return result;
 
