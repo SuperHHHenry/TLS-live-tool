@@ -1,5 +1,6 @@
 import { Title } from '@/components/common/Title'
 import InstructionsCard from './components/InstructionsCard'
+import ScheduledLiveCard from './components/ScheduledLiveCard'
 import StatusCard from './components/StatusCard'
 
 export default function BrowserControl() {
@@ -11,6 +12,7 @@ export default function BrowserControl() {
 
       <div className="space-y-8">
         <StatusCard />
+        <ScheduledLiveCard />
         <InstructionsCard />
       </div>
     </div>

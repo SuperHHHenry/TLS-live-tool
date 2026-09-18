@@ -21,6 +21,25 @@ declare type LiveControlPlatform =
   | 'taobao'
   | 'dev'
 
+declare type ScheduledLiveStatus =
+  | 'idle'
+  | 'starting'
+  | 'waitingForLive'
+  | 'countingDown'
+  | 'stopping'
+  | 'verifyingStopped'
+  | 'completed'
+  | 'cancelled'
+  | 'failed'
+
+declare interface ScheduledLiveSnapshot {
+  status: ScheduledLiveStatus
+  durationMs: number | null
+  startedAt: number | null
+  endsAt: number | null
+  error: string | null
+}
+
 declare type GoodsItem = {
   id: number
   /** 单品循环弹窗次数，默认 1 */

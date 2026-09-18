@@ -42,12 +42,12 @@ export default function Sidebar() {
       name: '观众账号',
       icon: <CarbonChat className="w-5 h-5" />,
     },
-    // {
-    //   id: '/auto-message',
-    //   name: '自动发言',
-    //   isRunning: isAutoMessageRunning,
-    //   icon: <CarbonChat className="w-5 h-5" />,
-    // },
+    {
+      id: '/auto-message',
+      name: '自动发言',
+      isRunning: isAutoMessageRunning,
+      icon: <CarbonChat className="w-5 h-5" />,
+    },
     {
       id: '/auto-popup',
       name: '自动弹窗',

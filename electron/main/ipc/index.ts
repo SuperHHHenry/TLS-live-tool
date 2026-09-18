@@ -8,6 +8,7 @@ import { setupAutoReplyIpcHandlers } from './commentListener'
 import { setupLiveControlIpcHandlers } from './connection'
 import { setupPinCommentIpcHandler } from './pinComment'
 import { setupRedPacketIpcHandlers } from './redPacket'
+import { setupScheduledLiveIpcHandlers } from './scheduledLive'
 import { setupUpdateIpcHandlers } from './update'
 import { setupViewerIpcHandlers } from './viewer'
 
@@ -23,3 +24,4 @@ setupUpdateIpcHandlers()
 setupPinCommentIpcHandler()
 setupRedPacketIpcHandlers()
 setupViewerIpcHandlers()
+setupScheduledLiveIpcHandlers()

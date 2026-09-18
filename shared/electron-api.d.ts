@@ -54,6 +54,15 @@ export interface IpcChannels {
       | { ok: false },
   ) => void
 
+  // Scheduled live control
+  [IPC_CHANNELS.tasks.scheduledLive.start]: (params: {
+    hours: number
+    minutes: number
+  }) => ScheduledLiveSnapshot
+  [IPC_CHANNELS.tasks.scheduledLive.cancel]: () => ScheduledLiveSnapshot
+  [IPC_CHANNELS.tasks.scheduledLive.status]: () => ScheduledLiveSnapshot
+  [IPC_CHANNELS.tasks.scheduledLive.statusChanged]: (snapshot: ScheduledLiveSnapshot) => void
+
   // AutoMessage
   [IPC_CHANNELS.tasks.autoMessage.start]: (accountId: string, config: AutoCommentConfig) => boolean
   [IPC_CHANNELS.tasks.autoMessage.stop]: (accountId: string) => boolean
