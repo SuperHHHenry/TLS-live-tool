@@ -30,13 +30,25 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Console]::OutputEncoding
+$helperElevated = 'unknown'
+$stage = 'check-helper-elevation'
 try {
+  $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+  try {
+    $principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
+    $helperElevated = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+  }
+  finally { $identity.Dispose() }
+  $stage = 'compile-native-driver'
   Add-Type -Path (Join-Path $PSScriptRoot 'WindowsNative.cs') -ReferencedAssemblies 'System.dll', 'System.Core.dll'
+  $stage = 'run-native-driver'
   $result = [LiveCompanionNative.Driver]::Run($Action)
   $result | ConvertTo-Json -Compress
 }
 catch {
-  [Console]::Error.WriteLine($_.Exception.ToString())
+  # Keep the exception chain and stack on one line for the app's log viewer.
+  $detail = $_.Exception.ToString() -replace '[\r\n]+', ' | '
+  [Console]::Error.WriteLine("Action=$Action; HelperElevated=$helperElevated; Stage=$stage; $detail")
   exit 1
 }
 `
@@ -130,7 +142,7 @@ async function run(action: Action): Promise<NativeResult> {
     const message = error instanceof Error ? error.message : String(error)
     logger.error(`${action} 原生 UIA 失败，耗时 ${Date.now() - startedAt}ms：${message}`)
     if (/Access is denied|拒绝访问|0x80070005/i.test(message)) {
-      throw new Error('无法控制直播伴侣。若直播伴侣以管理员身份运行，请也以管理员身份运行本工具')
+      throw new Error(`Windows 访问被拒绝，不能仅据此判断未以管理员身份运行。诊断信息：${message}`)
     }
     throw new Error(`Windows 原生 UIA 自动化失败：${message}`)
   } finally {

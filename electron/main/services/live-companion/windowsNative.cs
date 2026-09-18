@@ -92,6 +92,9 @@ namespace LiveCompanionNative
 
     public static class Driver
     {
+        // PowerShell invokes synchronously; keep diagnostic context local to this thread.
+        [ThreadStatic] static string diagnosticStage;
+        [ThreadStatic] static int diagnosticPid;
         const string ProcessName = "直播伴侣";
         const string StartLabel = "开始直播";
         const string StopLabel = "关播";
@@ -119,6 +122,7 @@ namespace LiveCompanionNative
 
         static string Name(IUIAutomationElement element)
         {
+            diagnosticStage = "uia.read-name";
             object value = element.GetCurrentPropertyValue(NameProperty);
             if (!(value is string)) throw new InvalidOperationException("无法读取 UIA 元素名称");
             return ((string)value).Trim();
@@ -126,6 +130,7 @@ namespace LiveCompanionNative
 
         static bool Flag(IUIAutomationElement element, int property)
         {
+            diagnosticStage = "uia.read-property-" + property;
             object value = element.GetCurrentPropertyValue(property);
             if (!(value is bool)) throw new InvalidOperationException("无法读取 UIA 属性：" + property);
             return (bool)value;
@@ -144,11 +149,16 @@ namespace LiveCompanionNative
         static Process FindProcess()
         {
             var matches = new List<Process>();
+            diagnosticStage = "process.enumerate";
             foreach (Process process in Process.GetProcessesByName(ProcessName))
             {
                 try
                 {
-                    if (!process.HasExited && process.MainWindowHandle != IntPtr.Zero)
+                    diagnosticPid = process.Id;
+                    diagnosticStage = "process.check-exited";
+                    bool exited = process.HasExited;
+                    diagnosticStage = "process.read-main-window";
+                    if (!exited && process.MainWindowHandle != IntPtr.Zero)
                     {
                         matches.Add(process);
                         continue;
@@ -165,6 +175,7 @@ namespace LiveCompanionNative
 
         static Snapshot Scan(IUIAutomation automation, IUIAutomationTreeWalker walker, int pid, Stopwatch clock)
         {
+            diagnosticStage = "window.enumerate";
             var windows = new List<IntPtr>();
             EnumWindows(delegate(IntPtr hwnd, IntPtr unused)
             {
@@ -179,6 +190,7 @@ namespace LiveCompanionNative
             var seen = new HashSet<string>();
             foreach (IntPtr hwnd in windows)
             {
+                diagnosticStage = "uia.element-from-window";
                 IUIAutomationElement root = automation.ElementFromHandle(hwnd);
                 if (root == null) throw new InvalidOperationException("无法获取直播伴侣窗口的原生 UIA 根元素");
                 var stack = new Stack<IUIAutomationElement>();
@@ -192,17 +204,18 @@ namespace LiveCompanionNative
                     // another top-level HWND; otherwise later siblings could be omitted.
                     if (!Object.ReferenceEquals(element, root))
                     {
+                        diagnosticStage = "uia.next-sibling";
                         var sibling = walker.GetNextSiblingElement(element);
                         if (sibling != null) stack.Push(sibling);
                     }
+                    diagnosticStage = "uia.runtime-id";
                     int[] runtimeId = element.GetRuntimeId();
                     if (runtimeId == null || runtimeId.Length == 0)
                         throw new InvalidOperationException("无法获取 UIA 元素标识，无法安全去重");
                     if (!seen.Add(String.Join(",", runtimeId))) continue;
                     result.ElementCount++;
                     string name = Name(element);
-                    if (Relevant(name) && !Flag(element, OffscreenProperty) &&
-                        Convert.ToInt32(element.GetCurrentPropertyValue(ProcessIdProperty)) == pid)
+                    if (Relevant(name) && !Flag(element, OffscreenProperty) && ElementProcessId(element) == pid)
                     {
                         result.Candidates.Add(new Candidate {
                             Element = element,
@@ -211,6 +224,7 @@ namespace LiveCompanionNative
                             CanInvoke = Flag(element, InvokeAvailableProperty)
                         });
                     }
+                    diagnosticStage = "uia.first-child";
                     var child = walker.GetFirstChildElement(element);
                     if (child != null) stack.Push(child);
                 }
@@ -249,17 +263,39 @@ namespace LiveCompanionNative
 
         public static Result Run(string action)
         {
+            diagnosticStage = "validate-action";
+            diagnosticPid = 0;
+            try { return RunCore(action); }
+            catch (Exception error)
+            {
+                throw new InvalidOperationException("NativeStage=" + diagnosticStage +
+                    "; TargetPID=" + diagnosticPid + "; " + error.Message, error);
+            }
+        }
+
+        static int ElementProcessId(IUIAutomationElement element)
+        {
+            diagnosticStage = "uia.read-process-id";
+            return Convert.ToInt32(element.GetCurrentPropertyValue(ProcessIdProperty));
+        }
+
+        static Result RunCore(string action)
+        {
             if (action != "state" && action != "start" && action != "stop" && action != "confirm-stop")
                 throw new ArgumentException("未知操作：" + action);
             using (Process process = FindProcess())
             {
+                diagnosticPid = process.Id;
+                diagnosticStage = "window.restore";
                 if (IsIconic(process.MainWindowHandle))
                 {
                     ShowWindowAsync(process.MainWindowHandle, 9);
                     Thread.Sleep(350);
                 }
+                diagnosticStage = "uia.create-client";
                 var automation = (IUIAutomation)Activator.CreateInstance(Type.GetTypeFromCLSID(
                     new Guid("FF48DBA4-60EF-4201-AA87-54103EEF594E"), true));
+                diagnosticStage = "uia.get-raw-walker";
                 var walker = automation.GetRawViewWalker();
                 var clock = Stopwatch.StartNew();
                 Snapshot snapshot = null;
@@ -270,6 +306,7 @@ namespace LiveCompanionNative
                 for (int i = 0; i < 6; i++)
                 {
                     attempts++;
+                    diagnosticStage = "process.check-exited-before-scan";
                     if (process.HasExited) throw new InvalidOperationException("直播伴侣已退出");
                     snapshot = Scan(automation, walker, process.Id, clock);
                     state = State(snapshot);
@@ -290,13 +327,16 @@ namespace LiveCompanionNative
                 string label = action == "start" ? StartLabel : action == "stop" ? StopLabel : ConfirmLabel;
                 Candidate target = Select(snapshot, label);
                 // Re-read volatile target properties immediately before invoking.
+                diagnosticStage = "process.check-exited-before-invoke";
                 if (process.HasExited || !Matches(Name(target.Element), label) ||
-                    Convert.ToInt32(target.Element.GetCurrentPropertyValue(ProcessIdProperty)) != process.Id ||
+                    ElementProcessId(target.Element) != process.Id ||
                     Flag(target.Element, OffscreenProperty) || !Flag(target.Element, EnabledProperty) ||
                     !Flag(target.Element, InvokeAvailableProperty))
                     throw new InvalidOperationException("目标元素状态已变化，已停止操作：" + label);
+                diagnosticStage = "uia.get-invoke-pattern";
                 var pattern = target.Element.GetCurrentPattern(InvokePatternId) as IUIAutomationInvokePattern;
                 if (pattern == null) throw new InvalidOperationException("无法获取原生 Invoke 接口：" + label);
+                diagnosticStage = "uia.invoke";
                 pattern.Invoke();
                 result.Invoked = true;
                 result.TargetName = target.Name;
