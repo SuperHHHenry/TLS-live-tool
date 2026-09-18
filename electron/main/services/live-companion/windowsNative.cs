@@ -123,8 +123,11 @@ namespace LiveCompanionNative
         {
             diagnosticStage = "uia.read-name";
             object value = element.GetCurrentPropertyValue(NameProperty);
-            if (!(value is string)) throw new InvalidOperationException("无法读取 UIA 元素名称");
-            return ((string)value).Trim();
+            // A provider may return null or a non-string sentinel for an unnamed
+            // element. It cannot match a target, but its children must still be
+            // scanned. Actual COM failures above continue to propagate.
+            string name = value as string;
+            return name == null ? String.Empty : name.Trim();
         }
 
         static bool Flag(IUIAutomationElement element, int property)
