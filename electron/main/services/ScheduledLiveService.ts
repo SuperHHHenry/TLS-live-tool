@@ -8,7 +8,7 @@ import {
 } from './live-companion'
 
 const POLL_INTERVAL_MS = 1_000
-const START_TIMEOUT_MS = 60_000
+const START_TIMEOUT_MS = 3 * 60_000
 const CONFIRM_TIMEOUT_MS = 20_000
 const STOP_TIMEOUT_MS = 30_000
 
@@ -117,7 +117,7 @@ export class ScheduledLiveService {
 
     this.logger.info('已识别开始直播按钮，正在发送点击操作')
     await driver.clickStart()
-    this.logger.info('点击接口已返回，正在等待直播伴侣切换到直播状态（最长 60 秒）')
+    this.logger.info('点击接口已返回，正在等待直播伴侣切换到直播状态（最长 3 分钟）')
     this.ensureCurrent(controller)
     this.update({ status: 'waitingForLive' })
     await this.waitForState(driver, 'live', START_TIMEOUT_MS, signal)
