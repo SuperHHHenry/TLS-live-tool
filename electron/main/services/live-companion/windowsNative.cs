@@ -106,6 +106,7 @@ namespace LiveCompanionNative
         const string ConfirmLabel = "确认";
         const string EndedLabel = "直播已结束";
         const int NameProperty = 30005;
+        const int ControlTypeProperty = 30003;
         const int ProcessIdProperty = 30002;
         const int EnabledProperty = 30010;
         const int OffscreenProperty = 30022;
@@ -168,6 +169,13 @@ namespace LiveCompanionNative
             return name.Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
         }
 
+        static string RuntimeId(IUIAutomationElement element)
+        {
+            diagnosticStage = "uia.runtime-id";
+            int[] value = element.GetRuntimeId();
+            return value == null || value.Length == 0 ? null : String.Join(",", value);
+        }
+
         static bool Matches(string name, string label)
         {
             return name == label || (label == StopLabel && StopName.IsMatch(name));
@@ -226,7 +234,6 @@ namespace LiveCompanionNative
             {
                 // Scan each HWND independently. An earlier HWND may expose only
                 // a partial tree; seeing its root must not prune a later scan.
-                var seen = new HashSet<string>();
                 diagnosticStage = "uia.element-from-window";
                 IUIAutomationElement root = automation.ElementFromHandle(hwnd);
                 if (root == null) throw new InvalidOperationException("无法获取直播伴侣窗口的原生 UIA 根元素");
@@ -239,26 +246,10 @@ namespace LiveCompanionNative
                     IUIAutomationElement element = stack.Pop();
                     // Count visits, including duplicates, so cycles remain bounded.
                     result.ElementCount++;
-                    // Queue siblings even when this element was already visited through
-                    // another top-level HWND; otherwise later siblings could be omitted.
-                    if (!Object.ReferenceEquals(element, root))
-                    {
-                        diagnosticStage = "uia.next-sibling";
-                        var sibling = walker.GetNextSiblingElement(element);
-                        if (sibling != null) stack.Push(sibling);
-                    }
-                    // Runtime IDs are not guaranteed to be unique across every provider node.
-                    // Keep traversing duplicate nodes so their descendants are not pruned.
-                    diagnosticStage = "uia.first-child";
-                    var child = walker.GetFirstChildElement(element);
-                    if (child != null) stack.Push(child);
-                    diagnosticStage = "uia.runtime-id";
-                    int[] runtimeId = element.GetRuntimeId();
-                    if (runtimeId == null || runtimeId.Length == 0)
-                        throw new InvalidOperationException("无法获取 UIA 元素标识，无法安全去重");
-                    string elementId = String.Join(",", runtimeId);
-                    if (!seen.Add(elementId)) continue;
                     string name = Name(element);
+                    // Reading the control type before requesting descendants matches the
+                    // standalone probe that reliably expands Chromium's full UIA tree.
+                    string controlType = DiagnosticProperty(element, ControlTypeProperty);
                     if (name.Length > 0)
                     {
                         result.NamedElementCount++;
@@ -267,27 +258,42 @@ namespace LiveCompanionNative
                             result.NamedElements.Add(
                                 "HWND=0x" + hwnd.ToInt64().ToString("X") +
                                 "; Name=" + DiagnosticName(name) +
+                                "; ControlType=" + controlType +
                                 "; PID=" + DiagnosticProperty(element, ProcessIdProperty) +
                                 "; Offscreen=" + DiagnosticProperty(element, OffscreenProperty) +
                                 "; Enabled=" + DiagnosticProperty(element, EnabledProperty) +
-                                "; InvokeAvailable=" + DiagnosticProperty(element, InvokeAvailableProperty) +
-                                "; RuntimeId=" + elementId);
+                                "; InvokeAvailable=" + DiagnosticProperty(element, InvokeAvailableProperty));
                         }
                         else
                         {
                             result.DiagnosticTruncated = true;
                         }
                     }
-                    if (Relevant(name) && !Flag(element, OffscreenProperty) && ElementProcessId(element) == pid &&
-                        candidateIds.Add(elementId))
+                    if (Relevant(name) && !Flag(element, OffscreenProperty) && ElementProcessId(element) == pid)
                     {
-                        result.Candidates.Add(new Candidate {
-                            Element = element,
-                            Name = name,
-                            Enabled = Flag(element, EnabledProperty),
-                            CanInvoke = Flag(element, InvokeAvailableProperty)
-                        });
+                        string candidateId = RuntimeId(element);
+                        if (candidateId == null || candidateIds.Add(candidateId))
+                        {
+                            result.Candidates.Add(new Candidate {
+                                Element = element,
+                                Name = name,
+                                Enabled = Flag(element, EnabledProperty),
+                                CanInvoke = Flag(element, InvokeAvailableProperty)
+                            });
+                        }
                     }
+                    // Do not prune by RuntimeId: Chromium providers can reuse identifiers
+                    // while still exposing distinct descendants. The visit/time limits above
+                    // bound malformed or cyclic provider trees.
+                    if (!Object.ReferenceEquals(element, root))
+                    {
+                        diagnosticStage = "uia.next-sibling";
+                        var sibling = walker.GetNextSiblingElement(element);
+                        if (sibling != null) stack.Push(sibling);
+                    }
+                    diagnosticStage = "uia.first-child";
+                    var child = walker.GetFirstChildElement(element);
+                    if (child != null) stack.Push(child);
                 }
             }
             return result;
