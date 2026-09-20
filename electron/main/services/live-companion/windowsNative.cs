@@ -99,7 +99,7 @@ namespace LiveCompanionNative
         const string ProcessName = "直播伴侣";
         const string StartLabel = "开始直播";
         const string StopLabel = "关播";
-        const string ConfirmLabel = "关闭直播";
+        const string ConfirmLabel = "确认";
         const string EndedLabel = "直播已结束";
         const int NameProperty = 30005;
         const int ProcessIdProperty = 30002;
