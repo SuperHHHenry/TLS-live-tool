@@ -115,6 +115,7 @@ namespace LiveCompanionNative
         const int StateReadAttempts = 11;
         const int StateReadRetryDelayMs = 500;
         const int DiagnosticElementLimit = 200;
+        const string ScanLimitErrorCode = "UIA_SCAN_LIMIT_EXCEEDED";
         static readonly Regex StopName = new Regex(@"^(?:\d+:\d{2}(?::\d{2})?\s*)?关播$");
 
         delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr state);
@@ -242,7 +243,8 @@ namespace LiveCompanionNative
                 while (stack.Count > 0)
                 {
                     if (result.ElementCount >= 5000 || clock.Elapsed.TotalSeconds > 12)
-                        throw new InvalidOperationException("原生 UIA 扫描未完成（元素或时间上限），已停止操作");
+                        throw new InvalidOperationException(ScanLimitErrorCode +
+                            ": 原生 UIA 扫描未完成（元素或时间上限），已停止操作");
                     IUIAutomationElement element = stack.Pop();
                     // Count visits, including duplicates, so cycles remain bounded.
                     result.ElementCount++;

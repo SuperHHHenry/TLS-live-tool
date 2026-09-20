@@ -3,6 +3,7 @@ import type { LiveCompanionDriver } from './types'
 import { WindowsLiveCompanionDriver } from './windows'
 
 export type { LiveCompanionDriver, LiveCompanionState } from './types'
+export { isLiveCompanionScanLimitError } from './windows'
 
 export function createLiveCompanionDriver(): LiveCompanionDriver {
   if (process.platform === 'win32') return new WindowsLiveCompanionDriver()

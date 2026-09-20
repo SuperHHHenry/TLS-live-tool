@@ -3,6 +3,7 @@ import { createLogger } from '#/logger'
 import windowManager from '#/windowManager'
 import {
   createLiveCompanionDriver,
+  isLiveCompanionScanLimitError,
   type LiveCompanionDriver,
   type LiveCompanionState,
 } from './live-companion'
@@ -162,7 +163,15 @@ export class ScheduledLiveService {
     const deadline = Date.now() + timeoutMs
     let previousState: LiveCompanionState | undefined
     while (Date.now() < deadline) {
-      const state = await driver.readState()
+      let state: LiveCompanionState
+      try {
+        state = await driver.readState()
+      } catch (error) {
+        if (!isLiveCompanionScanLimitError(error)) throw error
+        this.logger.warn('本轮原生 UIA 扫描超限，将在整体等待期限内继续识别直播伴侣状态')
+        await abortableDelay(POLL_INTERVAL_MS, signal)
+        continue
+      }
       if (state !== previousState) {
         this.logger.info(
           `直播伴侣状态：${state}，等待目标状态：${expected === 'ended' ? 'ended（直播已结束）或 ready（开播主界面）' : expected}`,

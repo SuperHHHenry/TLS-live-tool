@@ -9,6 +9,20 @@ import nativeSource from './windowsNative.cs?raw'
 
 const logger = createLogger('ScheduledLive:Windows')
 type Action = 'state' | 'start' | 'stop' | 'confirm-stop'
+const SCAN_LIMIT_ERROR_CODE = 'UIA_SCAN_LIMIT_EXCEEDED'
+
+export class LiveCompanionScanLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'LiveCompanionScanLimitError'
+  }
+}
+
+export function isLiveCompanionScanLimitError(
+  error: unknown,
+): error is LiveCompanionScanLimitError {
+  return error instanceof LiveCompanionScanLimitError
+}
 
 interface NativeResult {
   State: LiveCompanionState
@@ -144,6 +158,9 @@ async function run(action: Action): Promise<NativeResult> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error(`${action} 原生 UIA 失败，耗时 ${Date.now() - startedAt}ms：${message}`)
+    if (message.includes(SCAN_LIMIT_ERROR_CODE)) {
+      throw new LiveCompanionScanLimitError(`Windows 原生 UIA 扫描暂时超限：${message}`)
+    }
     if (/Access is denied|拒绝访问|0x80070005/i.test(message)) {
       throw new Error(`Windows 访问被拒绝，不能仅据此判断未以管理员身份运行。诊断信息：${message}`)
     }
