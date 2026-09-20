@@ -74,6 +74,7 @@ namespace LiveCompanionNative
         public string Method;
         public bool Invoked;
         public string Detail;
+        public string Diagnostic;
     }
 
     sealed class Candidate
@@ -87,8 +88,11 @@ namespace LiveCompanionNative
     sealed class Snapshot
     {
         public readonly List<Candidate> Candidates = new List<Candidate>();
+        public readonly List<string> NamedElements = new List<string>();
         public int ElementCount;
+        public int NamedElementCount;
         public int WindowCount;
+        public bool DiagnosticTruncated;
     }
 
     public static class Driver
@@ -109,6 +113,7 @@ namespace LiveCompanionNative
         const int InvokePatternId = 10000;
         const int StateReadAttempts = 11;
         const int StateReadRetryDelayMs = 500;
+        const int DiagnosticElementLimit = 200;
         static readonly Regex StopName = new Regex(@"^(?:\d+:\d{2}(?::\d{2})?\s*)?关播$");
 
         delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr state);
@@ -138,6 +143,29 @@ namespace LiveCompanionNative
             object value = element.GetCurrentPropertyValue(property);
             if (!(value is bool)) throw new InvalidOperationException("无法读取 UIA 属性：" + property);
             return (bool)value;
+        }
+
+        static string DiagnosticProperty(IUIAutomationElement element, int property)
+        {
+            string previousStage = diagnosticStage;
+            try
+            {
+                object value = element.GetCurrentPropertyValue(property);
+                return value == null ? "null" : Convert.ToString(value);
+            }
+            catch (Exception error)
+            {
+                return "error:" + error.GetType().Name;
+            }
+            finally
+            {
+                diagnosticStage = previousStage;
+            }
+        }
+
+        static string DiagnosticName(string name)
+        {
+            return name.Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
         }
 
         static bool Matches(string name, string label)
@@ -231,6 +259,25 @@ namespace LiveCompanionNative
                     string elementId = String.Join(",", runtimeId);
                     if (!seen.Add(elementId)) continue;
                     string name = Name(element);
+                    if (name.Length > 0)
+                    {
+                        result.NamedElementCount++;
+                        if (result.NamedElements.Count < DiagnosticElementLimit)
+                        {
+                            result.NamedElements.Add(
+                                "HWND=0x" + hwnd.ToInt64().ToString("X") +
+                                "; Name=" + DiagnosticName(name) +
+                                "; PID=" + DiagnosticProperty(element, ProcessIdProperty) +
+                                "; Offscreen=" + DiagnosticProperty(element, OffscreenProperty) +
+                                "; Enabled=" + DiagnosticProperty(element, EnabledProperty) +
+                                "; InvokeAvailable=" + DiagnosticProperty(element, InvokeAvailableProperty) +
+                                "; RuntimeId=" + elementId);
+                        }
+                        else
+                        {
+                            result.DiagnosticTruncated = true;
+                        }
+                    }
                     if (Relevant(name) && !Flag(element, OffscreenProperty) && ElementProcessId(element) == pid &&
                         candidateIds.Add(elementId))
                     {
@@ -332,7 +379,12 @@ namespace LiveCompanionNative
                     State = state, ProcessId = process.Id, ElementCount = snapshot.ElementCount,
                     AttemptCount = attempts, Method = "nativeUIA", Invoked = false,
                     Detail = "原生 UIA 已扫描；顶层窗口数：" + snapshot.WindowCount +
-                        "；可见目标元素数：" + snapshot.Candidates.Count
+                        "；可见目标元素数：" + snapshot.Candidates.Count,
+                    Diagnostic = state == "unknown" ?
+                        "UIA 具名元素诊断：总数=" + snapshot.NamedElementCount +
+                        "；已记录=" + snapshot.NamedElements.Count +
+                        "；是否截断=" + snapshot.DiagnosticTruncated + Environment.NewLine +
+                        String.Join(Environment.NewLine, snapshot.NamedElements.ToArray()) : null
                 };
                 if (action == "state") return result;
 

@@ -19,6 +19,7 @@ interface NativeResult {
   TargetName: string | null
   Invoked: boolean
   Detail: string
+  Diagnostic: string | null
 }
 
 const POWERSHELL_SCRIPT = String.raw`
@@ -79,6 +80,7 @@ function parseResult(output: string, action: Action): NativeResult {
     !Number.isInteger(result.AttemptCount) ||
     result.AttemptCount <= 0 ||
     typeof result.Detail !== 'string' ||
+    (result.Diagnostic !== null && typeof result.Diagnostic !== 'string') ||
     typeof result.Invoked !== 'boolean'
   ) {
     throw new Error('原生 UIA 返回了无效的诊断结果')
@@ -128,6 +130,7 @@ async function run(action: Action): Promise<NativeResult> {
     if (action === 'state') {
       logger.debug(`原生 UIA：${summary}；${result.Detail}`)
       if (result.State === 'unknown') {
+        if (result.Diagnostic) logger.debug(result.Diagnostic)
         logger.warn(
           `已找到直播伴侣，但原生 UIA 未识别到可开播、直播中或结束状态。${summary}；${result.Detail}`,
         )
