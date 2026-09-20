@@ -30,7 +30,7 @@ import { useToast } from './hooks/useToast'
 
 function useGlobalIpcListener() {
   const { handleComment } = useAutoReply()
-  const { setIsListening } = useAutoReplyStore()
+  const { setIsListening, setIsRunning: setIsRunningAutoReply } = useAutoReplyStore()
   const { setIsConnected, setAccountName } = useLiveControlStore()
   const setIsRunningAutoMessage = useAutoMessageStore(s => s.setIsRunning)
   const setIsRunningAutoPopUp = useAutoPopUpStore(s => s.setIsRunning)
@@ -60,6 +60,7 @@ function useGlobalIpcListener() {
 
   useIpcListener(IPC_CHANNELS.tasks.autoReply.listenerStopped, id => {
     setIsListening(id, 'stopped')
+    setIsRunningAutoReply(id, false)
   })
 
   useIpcListener(IPC_CHANNELS.chrome.saveState, (id, state) => {

@@ -7,9 +7,20 @@ import type { LiveCompanionDriver, LiveCompanionState } from './types'
 const BUNDLE_ID = 'com.bytedance.webcastmate.mac'
 const logger = createLogger('ScheduledLive:macOS')
 
+interface MacOSStateResult {
+  state: LiveCompanionState
+  processIds: number[]
+  accessibilityActivation: string[]
+  windowCount: number
+  elementCount: number
+  targetCount: number
+}
+
 const MACOS_AX_SCRIPT = String.raw`
 ObjC.import('AppKit')
 ObjC.import('ApplicationServices')
+
+const AX_SNAPSHOT_EXPIRED = 'AX_SNAPSHOT_EXPIRED'
 
 function attribute(element, name) {
   const value = Ref()
@@ -17,6 +28,7 @@ function attribute(element, name) {
   // AX returns an opaque CFTypeRef. Bridge it before ObjC.unwrap; otherwise
   // arrays have no .length and existing windows are mistaken for an empty list.
   if (result === 0) return ObjC.castRefToObject(value[0]) || null
+  if (result === -25202) throw new Error(AX_SNAPSHOT_EXPIRED)
   if (result === -25205 || result === -25212) return null
   throw new Error('读取辅助功能属性失败：' + name + ' (' + result + ')')
 }
@@ -31,6 +43,13 @@ function children(element) {
   const value = attribute(element, 'AXChildren')
   if (!value) return []
   try { return ObjC.unwrap(value) || [] } catch (_) { return [] }
+}
+
+function enableWebAccessibility(element, pid) {
+  return ['AXManualAccessibility', 'AXEnhancedUserInterface'].map(name => {
+    const result = $.AXUIElementSetAttributeValue(element, $(name), $(true))
+    return pid + ':' + name + '=' + result
+  })
 }
 
 function allElements(root) {
@@ -81,46 +100,67 @@ function run(argv) {
     throw new Error('not authorized for accessibility (-25211)')
   }
 
-  let runningApp = null
-  let windowList = []
+  const apps = []
+  const runningApps = []
+  const accessibilityActivation = []
   for (const pid of pids) {
     const candidateApp = $.AXUIElementCreateApplication(pid)
-    const windows = attribute(candidateApp, 'AXWindows')
-    const candidateWindows = windows ? ObjC.unwrap(windows) : []
-    if (!candidateWindows.length) continue
-    runningApp = $.NSRunningApplication.runningApplicationWithProcessIdentifier(pid)
-    windowList = candidateWindows
-    break
+    apps.push(candidateApp)
+    accessibilityActivation.push(...enableWebAccessibility(candidateApp, pid))
+    const runningApp = $.NSRunningApplication.runningApplicationWithProcessIdentifier(pid)
+    if (runningApp) runningApps.push(runningApp)
   }
-  if (!windowList.length) throw new Error('未找到抖音直播伴侣窗口，请先恢复窗口')
-  if (runningApp) runningApp.activateWithOptions($.NSApplicationActivateIgnoringOtherApps)
+  for (const runningApp of runningApps) {
+    runningApp.activateWithOptions($.NSApplicationActivateIgnoringOtherApps)
+  }
   delay(0.35)
   let confirmButton = null
   let stopButton = null
   let startButton = null
   let hasStopLabel = false
   let hasEndedLabel = false
+  let windowList = []
+  let elementCount = 0
   // Electron may initially expose only the native window controls. Re-read
   // the tree while its web accessibility content is being published.
   const attempts = action === 'state' || action === 'start' ? 11 : 1
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const elements = allElements(windowList[0])
-    // The timer and stop label may be combined on the button or exposed as text.
-    hasStopLabel = elements.some(element => names(element).some(isStopLabel))
-    hasEndedLabel = elements.some(element => names(element).includes('直播已结束'))
-    confirmButton = findButton(elements, ['关闭直播'])
-    stopButton = findButton(elements, ['关播'])
-    startButton = findButton(elements, ['开始直播'])
-    if (confirmButton || hasStopLabel || hasEndedLabel || startButton) break
+    try {
+      windowList = []
+      for (const app of apps) {
+        const windows = attribute(app, 'AXWindows')
+        for (const window of windows ? ObjC.unwrap(windows) : []) windowList.push(window)
+      }
+      const elements = []
+      for (const window of windowList) elements.push(...allElements(window))
+      elementCount = elements.length
+      // The timer and stop label may be combined on the button or exposed as text.
+      hasStopLabel = elements.some(element => names(element).some(isStopLabel))
+      hasEndedLabel = elements.some(element => names(element).includes('直播已结束'))
+      confirmButton = findButton(elements, ['关闭直播'])
+      stopButton = findButton(elements, ['关播'])
+      startButton = findButton(elements, ['开始直播'])
+      if (confirmButton || hasStopLabel || hasEndedLabel || startButton) break
+    } catch (error) {
+      if (!String(error).includes(AX_SNAPSHOT_EXPIRED)) throw error
+      windowList = []
+      confirmButton = null
+      stopButton = null
+      startButton = null
+      hasStopLabel = false
+      hasEndedLabel = false
+      elementCount = 0
+    }
     if (attempt + 1 < attempts) delay(0.5)
   }
+  if (!windowList.length) throw new Error('未找到抖音直播伴侣窗口，请先恢复窗口')
 
   if (action === 'state') {
-    if (confirmButton) return 'confirmingStop'
-    if (hasStopLabel) return 'live'
-    if (hasEndedLabel) return 'ended'
-    if (startButton) return 'ready'
-    return 'unknown'
+    const state = confirmButton ? 'confirmingStop' : hasStopLabel ? 'live' :
+      hasEndedLabel ? 'ended' : startButton ? 'ready' : 'unknown'
+    const targetCount = [confirmButton, hasStopLabel, hasEndedLabel, startButton].filter(Boolean).length
+    return JSON.stringify({ state, processIds: pids, accessibilityActivation,
+      windowCount: windowList.length, elementCount, targetCount })
   }
   if (action === 'start') {
     if (confirmButton || hasStopLabel) throw new Error('直播伴侣已在直播或关播确认中，已停止开播操作')
@@ -168,6 +208,24 @@ async function run(action: string) {
             ['-e', MACOS_MOUSE_SCRIPT, pids.join(','), action],
             60_000,
           )
+    if (action === 'state') {
+      const result = JSON.parse(output) as MacOSStateResult
+      if (
+        !result ||
+        !['ready', 'live', 'confirmingStop', 'ended', 'unknown'].includes(result.state) ||
+        !Array.isArray(result.processIds) ||
+        !Array.isArray(result.accessibilityActivation) ||
+        !Number.isInteger(result.windowCount) ||
+        !Number.isInteger(result.elementCount) ||
+        !Number.isInteger(result.targetCount)
+      ) {
+        throw new Error('macOS 辅助功能返回了无效的诊断结果')
+      }
+      logger.debug(
+        `原生 AX：PID=${result.processIds.join(',')}，辅助功能启用=${result.accessibilityActivation.join(',')}，窗口 ${result.windowCount} 个，扫描 ${result.elementCount} 个元素，目标 ${result.targetCount} 个，状态=${result.state}`,
+      )
+      return result.state
+    }
     if (action !== 'state')
       logger.info(
         `${action} 点击调用返回，耗时 ${Date.now() - startedAt}ms，结果：${output}（仅表示接口返回，界面响应由后续状态检查确认）`,

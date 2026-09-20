@@ -6,9 +6,16 @@ type Notify = {
   error: (message: string) => void
 }
 
-export async function startViewerAutomation(notify: Notify) {
+export interface ViewerAutomationOwnership {
+  accountIds: string[]
+  rotationStarted: boolean
+}
+
+const EMPTY_OWNERSHIP: ViewerAutomationOwnership = { accountIds: [], rotationStarted: false }
+
+export async function startViewerAutomation(notify: Notify): Promise<ViewerAutomationOwnership> {
   const store = useViewerAccounts.getState()
-  if (!store.liveAccounts.length || !store.accounts.length) return
+  if (!store.liveAccounts.length || !store.accounts.length) return EMPTY_OWNERSHIP
 
   let roomUrl: string | null = null
   for (const liveAccount of store.liveAccounts) {
@@ -29,7 +36,7 @@ export async function startViewerAutomation(notify: Notify) {
 
   if (!roomUrl) {
     notify.error('当前没有检测到可进入的直播间')
-    return
+    return EMPTY_OWNERSHIP
   }
 
   const enteredIds = new Set<string>()
@@ -45,7 +52,7 @@ export async function startViewerAutomation(notify: Notify) {
 
   if (!enteredIds.size) {
     notify.error('观众账号均未能进入直播间')
-    return
+    return EMPTY_OWNERSHIP
   }
 
   const commentAccounts = store.accounts
@@ -67,11 +74,12 @@ export async function startViewerAutomation(notify: Notify) {
     })
     if (!result.ok) {
       notify.error(result.error || '自动评论轮换启动失败')
-      return
+      return { accountIds: [...enteredIds], rotationStarted: false }
     }
   }
 
   notify.success(
     commentAccounts.length ? '观众账号已进入直播间并开启评论轮换' : '观众账号已进入直播间',
   )
+  return { accountIds: [...enteredIds], rotationStarted: commentAccounts.length > 0 }
 }

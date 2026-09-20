@@ -19,9 +19,10 @@ interface LuckyBagStore {
 // Pending requests are shared by page/sidebar hook instances and never persisted.
 const pendingStarts = new Map<string, symbol>()
 const pendingStops = new Map<string, symbol>()
+const DEFAULT_INTERVAL_MINUTES = 16
 
 export function createDefaultLuckyBagContext(): LuckyBagContext {
-  return { intervalMinutes: 10, isRunning: false }
+  return { intervalMinutes: DEFAULT_INTERVAL_MINUTES, isRunning: false }
 }
 
 export function toLuckyBagConfig(intervalMinutes: number): AutoLuckyBagConfig {
@@ -87,7 +88,7 @@ export const useAutoLuckyBagStore = create<LuckyBagStore>()(
 export function useAutoLuckyBag() {
   const accountId = useAccounts(state => state.currentAccountId)
   const intervalMinutes = useAutoLuckyBagStore(
-    state => state.contexts[accountId]?.intervalMinutes ?? 10,
+    state => state.contexts[accountId]?.intervalMinutes ?? DEFAULT_INTERVAL_MINUTES,
   )
   const isRunning = useAutoLuckyBagStore(state => state.contexts[accountId]?.isRunning ?? false)
   const updateInterval = useAutoLuckyBagStore(state => state.setIntervalMinutes)

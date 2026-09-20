@@ -107,6 +107,8 @@ namespace LiveCompanionNative
         const int OffscreenProperty = 30022;
         const int InvokeAvailableProperty = 30031;
         const int InvokePatternId = 10000;
+        const int StateReadAttempts = 11;
+        const int StateReadRetryDelayMs = 500;
         static readonly Regex StopName = new Regex(@"^(?:\d+:\d{2}(?::\d{2})?\s*)?关播$");
 
         delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr state);
@@ -217,6 +219,11 @@ namespace LiveCompanionNative
                         var sibling = walker.GetNextSiblingElement(element);
                         if (sibling != null) stack.Push(sibling);
                     }
+                    // Runtime IDs are not guaranteed to be unique across every provider node.
+                    // Keep traversing duplicate nodes so their descendants are not pruned.
+                    diagnosticStage = "uia.first-child";
+                    var child = walker.GetFirstChildElement(element);
+                    if (child != null) stack.Push(child);
                     diagnosticStage = "uia.runtime-id";
                     int[] runtimeId = element.GetRuntimeId();
                     if (runtimeId == null || runtimeId.Length == 0)
@@ -234,9 +241,6 @@ namespace LiveCompanionNative
                             CanInvoke = Flag(element, InvokeAvailableProperty)
                         });
                     }
-                    diagnosticStage = "uia.first-child";
-                    var child = walker.GetFirstChildElement(element);
-                    if (child != null) stack.Push(child);
                 }
             }
             return result;
@@ -313,7 +317,7 @@ namespace LiveCompanionNative
                 int attempts = 0;
                 // Read-only retries allow Chromium's accessibility tree to appear.
                 // Once Invoke is attempted it is never automatically repeated.
-                for (int i = 0; i < 6; i++)
+                for (int i = 0; i < StateReadAttempts; i++)
                 {
                     attempts++;
                     diagnosticStage = "process.check-exited-before-scan";
@@ -321,7 +325,7 @@ namespace LiveCompanionNative
                     snapshot = Scan(automation, walker, process.Id, clock);
                     state = State(snapshot);
                     if (state != "unknown") break;
-                    if (i < 5) Thread.Sleep(300);
+                    if (i < StateReadAttempts - 1) Thread.Sleep(StateReadRetryDelayMs);
                 }
 
                 var result = new Result {

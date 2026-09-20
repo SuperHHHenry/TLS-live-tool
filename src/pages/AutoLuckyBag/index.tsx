@@ -35,9 +35,7 @@ export default function AutoLuckyBag() {
               disabled={isRunning}
               className="w-40"
             />
-            <p className="text-xs text-muted-foreground">
-              请输入 1 到 35791 的整数分钟，默认为 10 分钟。
-            </p>
+            <p className="text-xs text-muted-foreground">请输入 1 到 35791 的整数分钟。</p>
           </div>
           <Button
             onClick={isRunning ? stop : start}

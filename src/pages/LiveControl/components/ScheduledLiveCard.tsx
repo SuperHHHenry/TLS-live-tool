@@ -49,7 +49,7 @@ function formatDuration(milliseconds: number) {
 
 export default function ScheduledLiveCard() {
   const [hours, setHours] = useState('0')
-  const [minutes, setMinutes] = useState('30')
+  const [minutes, setMinutes] = useState('35')
   const [now, setNow] = useState(Date.now())
   const { snapshot, start, cancel } = useScheduledLive()
   const { toast } = useToast()

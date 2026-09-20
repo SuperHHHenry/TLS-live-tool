@@ -14,6 +14,12 @@ import { useCurrentLiveControl, useCurrentLiveControlActions } from '@/hooks/use
 import { useToast } from '@/hooks/useToast'
 import { startViewerAutomation } from '@/utils/startViewerAutomation'
 
+export interface LiveControlAutomationOwnership {
+  accountId: string
+  viewerAccountIds: string[]
+  viewerRotationStarted: boolean
+}
+
 export function useConnectLiveControl() {
   const { setIsConnected } = useCurrentLiveControlActions()
   const platform = useCurrentLiveControl(context => context.platform)
@@ -33,7 +39,7 @@ export function useConnectLiveControl() {
     try {
       if (!account) {
         toast.error('找不到对应账号')
-        return
+        return null
       }
       setIsConnected('connecting')
       const result = await window.ipcRenderer.invoke(IPC_CHANNELS.tasks.liveControl.connect, {
@@ -45,6 +51,8 @@ export function useConnectLiveControl() {
       })
 
       if (result) {
+        let viewerAccountIds: string[] = []
+        let viewerRotationStarted = false
         setIsConnected('connected')
         toast.success('已连接到直播控制台')
         if (platform === 'buyin') {
@@ -116,14 +124,21 @@ export function useConnectLiveControl() {
             autoReplyStore.setIsRunning(account.id, true)
             toast.success('自动回复任务已启动')
           }
-          await startViewerAutomation(toast)
+          try {
+            const viewerOwnership = await startViewerAutomation(toast)
+            viewerAccountIds = viewerOwnership.accountIds
+            viewerRotationStarted = viewerOwnership.rotationStarted
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : '观众自动化启动失败')
+          }
         }
-      } else {
-        throw new Error('连接直播控制台失败')
+        return { accountId: account.id, viewerAccountIds, viewerRotationStarted }
       }
+      throw new Error('连接直播控制台失败')
     } catch (error) {
       setIsConnected('disconnected')
       toast.error(error instanceof Error ? error.message : '连接直播控制台失败')
+      return null
     }
   })
 
